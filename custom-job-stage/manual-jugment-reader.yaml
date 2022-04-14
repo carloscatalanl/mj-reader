@@ -1,0 +1,99 @@
+apiVersion: spinnaker.armory.io/v1alpha2
+kind: SpinnakerService
+metadata:
+  name: spinnaker
+spec:
+  spinnakerConfig:
+    profiles:
+      orca:
+        job:
+          preconfigured:
+            kubernetes:
+              - label: Manual judgment reader 
+                type: manualJudgmentReader
+                description: Read a manual judgment
+                cloudProvider: kubernetes
+                account: spinnaker 
+                credentials: spinnaker 
+                waitForCompletion: true
+                application: application-name # Application name (Change this)
+                parameters:
+                  - name: THIS_APPLICATION
+                    label: This Application
+                    description: This Application
+                    mapping: manifest.spec.template.spec.containers[0].env[0].value
+                    defaultValue: "doordash-test"
+                  - name: THIS_PIPELINE 
+                    label: This Pipeline
+                    description: This Pipeline
+                    mapping: manifest.spec.template.spec.containers[0].env[1].value
+                    defaultValue: "master-pp"
+                  - name: APPLICATION
+                    label: Application where are the pipeline (To read)
+                    description: Application where are the pipeline (To read)
+                    mapping: manifest.spec.template.spec.containers[0].env[2].value
+                    defaultValue: "doordash-test"
+                  - name: PIPELINE 
+                    label: Pipeline (To read)
+                    description: Pipeline (To read)
+                    mapping: manifest.spec.template.spec.containers[0].env[3].value
+                    defaultValue: "child-pp"
+                  - name: STOPOPT
+                    label: Option to stop the pipeline
+                    description: Option to stop the pipeline
+                    mapping: manifest.spec.template.spec.containers[0].env[4].value
+                    defaultValue: "rollout"
+                  - name: STEP
+                    label: Step of manual judgment
+                    description: Step of manual judgment
+                    mapping: manifest.spec.template.spec.containers[0].env[5].value
+                    defaultValue: 3
+                manifest:
+                  apiVersion: batch/v1
+                  kind: Job
+                  metadata:
+                    name: mj-reader
+                    namespace: namespace-name # Configure the namespace (Change this)
+                  spec:
+                    backoffLimit: 0
+                    ttlSecondsAfterFinished: 10 
+                    template:
+                      spec:
+                        restartPolicy: Never
+                        containers: 
+                          - name: mj-reader
+                            image: dwdraju/alpine-curl-jq # Image with CURL and JQ
+                            env:
+                              - name: THIS_APPLICATION
+                                value: placeholder
+                              - name: THIS_PIPELINE
+                                value: placeholder
+                              - name: APPLICATION
+                                value: placeholder
+                              - name: PIPELINE
+                                value: placeholder
+                              - name: STOPOPT
+                                value: placeholder
+                              - name: STEP
+                                value: placeholder
+                            command: ["/bin/sh", "-c"]
+                            args:
+                              - echo "-------";
+                                echo "manual-judgment-reader V 1.1.1" --- " "IP:" $SPIN_GATE_SERVICE_HOST:$SPIN_GATE_SERVICE_PORT "---" "STOP OPTION:" $STOPOPT "---" "STEP:" $STEP;
+                                echo "APPLICATION:" $THIS_APPLICATION "---" "PIPELINE:" $THIS_PIPELINE "---"APPLICATION TO READ:" $APPLICATION "---" "PIPELINE TO READ:" $PIPELINE ;
+                                echo "-------";
+                                PIPEID=$(curl -s -X POST $SPIN_GATE_SERVICE_HOST:$SPIN_GATE_SERVICE_PORT/pipelines/$APPLICATION/$PIPELINE | jq -r '.ref');
+                                echo "PIPELINE ID:" $PIPEID;
+                                sleep 10;
+                                JSTEP=$(expr $STEP - 1);
+                                echo "Json Step:" $JSTEP;
+                                STATUS=$(curl -s -X GET $SPIN_GATE_SERVICE_HOST:$SPIN_GATE_SERVICE_PORT$PIPEID | jq --arg key "$JSTEP" -r '.stages[$key|tonumber].status');
+                                while [[ $STATUS != "SUCCEEDED" && $STATUS != "TERMINAL" ]]; do STATUS=$(curl -s -X GET $SPIN_GATE_SERVICE_HOST:$SPIN_GATE_SERVICE_PORT$PIPEID | jq --arg key "$JSTEP" -r '.stages[$key|tonumber].status'); sleep 5; done;
+                                echo "STATUS:" $STATUS;
+                                ANSWER=$(curl -s -X GET $SPIN_GATE_SERVICE_HOST:$SPIN_GATE_SERVICE_PORT$PIPEID | jq --arg key "$JSTEP" -r '.stages[$key|tonumber].context.judgmentInput');
+                                echo "Answer expect:" $STOPOPT " Actual answer:" $ANSWER;
+                                THIS_ID=$(curl -s -X GET $SPIN_GATE_SERVICE_HOST:$SPIN_GATE_SERVICE_PORT/applications/$THIS_APPLICATION/pipelines | jq --arg key "$THIS_PIPELINE" -r '.[] | select(.status=="RUNNING") | select(.name==$key).id');
+                                echo "PIPELINE TO STOP ID:"$THIS_ID;
+                                echo $SPIN_GATE_SERVICE_HOST:$SPIN_GATE_SERVICE_PORT/pipelines/$THIS_ID/cancel;
+                                if [ $ANSWER == $STOPOPT ]; then curl -X PUT $SPIN_GATE_SERVICE_HOST:$SPIN_GATE_SERVICE_PORT/pipelines/$THIS_ID/cancel; fi;
+
