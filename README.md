@@ -17,4 +17,4 @@ Important use ignore the failure if the stage fails in the pipeline step configu
 ---
 
 ## Authors
-* **Carlos Catalán** - [Github](https://github.com/carloscatalanl)  - [Gitlab](https://gitlab.com/carloscatalanl) 
+* **Carlos Catalán** - [Github](https://github.com/carloscatalanl)
