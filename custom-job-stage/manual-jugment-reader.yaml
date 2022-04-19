@@ -22,7 +22,7 @@ spec:
                     label: This Application
                     description: This Application
                     mapping: manifest.spec.template.spec.containers[0].env[0].value
-                    defaultValue: "doordash-test"
+                    defaultValue: "app-name"
                   - name: THIS_PIPELINE 
                     label: This Pipeline
                     description: This Pipeline
@@ -32,7 +32,7 @@ spec:
                     label: Application where are the pipeline (To read)
                     description: Application where are the pipeline (To read)
                     mapping: manifest.spec.template.spec.containers[0].env[2].value
-                    defaultValue: "doordash-test"
+                    defaultValue: "app-name"
                   - name: PIPELINE 
                     label: Pipeline (To read)
                     description: Pipeline (To read)
@@ -96,4 +96,3 @@ spec:
                                 echo "PIPELINE TO STOP ID:"$THIS_ID;
                                 echo $SPIN_GATE_SERVICE_HOST:$SPIN_GATE_SERVICE_PORT/pipelines/$THIS_ID/cancel;
                                 if [ $ANSWER == $STOPOPT ]; then curl -X PUT $SPIN_GATE_SERVICE_HOST:$SPIN_GATE_SERVICE_PORT/pipelines/$THIS_ID/cancel; fi;
-
